@@ -345,7 +345,7 @@ async def sign_tx(tx: SignTx, root):
                 tx, txi, ecdsa_hash_pubkey(key_sign_pub), get_hash_type(coin))
 
             signature = ecdsa_sign(key_sign, bip143_hash)
-            witness = get_p2wpkh_witness(signature, key_sign_pub)
+            witness = get_p2wpkh_witness(signature, key_sign_pub, get_hash_type(coin))
 
             tx_ser.serialized_tx = witness
             tx_ser.signature_index = i
@@ -426,10 +426,10 @@ def get_tx_header(tx: SignTx, segwit=False):
     return w_txi
 
 
-def get_p2wpkh_witness(signature: bytes, pubkey: bytes):
+def get_p2wpkh_witness(signature: bytes, pubkey: bytes, sighash: int):
     w = bytearray_with_cap(1 + 5 + len(signature) + 1 + 5 + len(pubkey))
     write_varint(w, 0x02)  # num of segwit items, in P2WPKH it's always 2
-    append_signature(w, signature)
+    append_signature(w, signature, sighash)
     append_pubkey(w, pubkey)
     return w
 
@@ -512,7 +512,8 @@ def input_derive_script(coin: CoinType, i: TxInputType, pubkey: bytes, signature
         return input_script_native_p2wpkh_or_p2wsh()
     # mutlisig
     elif i.script_type == InputScriptType.SPENDMULTISIG:
-        return input_script_multisig(signature, i.multisig.signatures, multisig_get_pubkeys(i.multisig), i.multisig.m)
+        return input_script_multisig(signature, i.multisig.signatures, multisig_get_pubkeys(i.multisig), i.multisig.m,
+                                     get_hash_type(coin))
     else:
         raise SigningError(FailureType.ProcessError, 'Invalid script type')
 
